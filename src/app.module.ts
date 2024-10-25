@@ -4,12 +4,26 @@ import { AppService } from './app.service';
 import { CoffeesController } from './coffees/coffees.controller';
 import { CoffeesService } from './coffees/coffees.service';
 import { CoffeesModule } from './coffees/coffees.module';
+import {TypeOrmModule} from "@nestjs/typeorm"
 
 @Module({
-  imports: [CoffeesModule], //broke the business structure to its module 
+  //broke the business structure to its module 
   //to contain CoffeeServoice and CoffeeController
   // controllers: [AppController, CoffeesController],
   // providers: [AppService, CoffeesService],
+  imports: [CoffeesModule, 
+    TypeOrmModule.forRoot({
+      type: 'postgres',
+      host: 'localhost',
+      port: 5432,
+      username: 'postgres',
+      password: 'pass123',
+      database: 'postgres',
+      autoLoadEntities: true,
+      synchronize: true //this let typeorm automatically generate tables
+      // this is dev only and not prod 
+    })
+  ], 
   controllers: [AppController],
   providers: [AppService],
 })

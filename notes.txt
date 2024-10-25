@@ -1,0 +1,1040 @@
+//running nest on watch mode  
+pnpm run start:dev 
+
+generating a new controller - nest g co 
+
+//to generate controller i side a certain module 
+nest g co modules/abc
+nest g co modules/abc --dry-run - this means you just want to dry run and see how it would look like  
+
+
+@Controller('coffees')
+export class CoffeesController {
+    @Get()
+    findAll() {
+        return 'This Action returns all the coffees'
+    }
+}
+this can be accessed from  http://localhost:3000/coffees
+
+//adding flavours inside the get req, 
+@Controller('coffees')
+export class CoffeesController {
+    @Get('flavours')
+    findAll() {
+        return 'This Action returns all the coffees'
+    }
+}
+http://localhost:3000/coffees/flavours
+
+
+    //more control to add dynamic status code
+    @HttpCode(HttpStatus.GONE)
+
+@Res decorator -     
+
+//servicds help us separate business logic from our controllers 
+//to generate a new service just type -  nest g s
+
+//each service is a provider - it can inject dependencies 
+//has the injectabl
+
+@Injectable()
+export class CoffeesService {}
+
+//then in controler use it like  
+constructor(private readonly coffeesService: CoffeesService){}
+
+// as ervice class will be utilizing an entity class  
+
+//Encompassing Business-domain in modules 
+// to generate module - nest g module 
+//so far, we have had the whole app in one big module, App-module
+//lets add some encapsulation 
+nest g module coffees
+
+//this will be added to the closes class module 
+@Module({})
+export class CoffeesModule {}
+inside the Module({}) - 
+//one can add controllers - api routes that this module we wwant this module to instanstiate
+// exports - list providers that they should be available anywhere this module is imported at
+// imports - ability to list other modules required in this module
+//  and providers array - list the services needed to be injected by the nest injector
+
+
+//A DTO - data transfer Object used to encapsulate data and send it from one app to another 
+//On post req, we can put a DTO
+//to generate a DTO, we can use a nest cli 
+//list the dir of the file to be generated
+ //nest g class coffees/dto/create-coffee.dto --no-spec to avoid generating a test file
+
+ //so a DTO is basically an object - no business logics, methods or any testing 
+ // just typesafty for what we except to carry data as 
+ //make the properties of DTO - readonly to maintain mutability
+
+
+ //common data practice to validate any incoming API requests
+ // cz we dont know who is sending the payload 
+ //  app.useGlobalPipes(new ValidationPipe())
+ //$ pnpm i class-validator class-transformer
+
+ //we can now add validations to those DTOs 
+ import  {IsString} from 'class-validator'
+export class CreateCoffeeDto {
+    @IsString()
+    readonly name: string;
+    @IsString()
+    readonly brand: string;
+    @IsString({each: true}) //each set of value is a string 
+    readonly flavors: string[];
+}
+
+
+//sending this request 
+{
+    "name": "Nostaka Caffein"
+  }
+  leads to a 
+  
+  {
+    "message": [
+        "brand must be a string",
+        "each value in flavors must be a string"
+    ],
+    "error": "Bad Request",
+    "statusCode": 400
+}
+
+//nest js provides serveral utilities map-types to avoid repetions like changing all DTOs 
+//types like in case of update DTO as we did weith create DTO
+nest i @nestjs/mapped-types
+import {PartialType} from '@nestjs/mapped-types'
+import { CreateCoffeeDto } from '../create-coffee.dto/create-coffee.dto';
+export class UpdateCoffeeDto  extends PartialType(CreateCoffeeDto) {
+}
+// The PartialType is returning the types of the class we cretaed inot it with all the props set to optional
+// Partial Types marks all fields optional and inherits all the validations rules applied 
+// via decorators and additional  add a single additional validation rule to each field that is optional 
+//now add a patch request with string works
+//but with other than strings fails  validations  
+
+//we can add optional properties in the validation pipeline 
+//example allow only properties included in the white list 
+//  app.useGlobalPipes(new ValidationPipe())
+
+app.useGlobalPipes(new ValidationPipe({
+    whitelist: true
+  }))
+
+  //for example if we want to avoid users to pass invalid properties to be automatically removed on post req
+  //for this , add the CreatDto on the service to retun it to the client 
+  
+  create(createCoffeeDto: any){
+    this.coffees.push(createCoffeeDto)
+    return createCoffeeDto
+}
+
+
+//sending this response does not bring an error  
+{
+    "id": 3,
+    "name": "Matakwa Caffein",
+    "brand": "Boss Drinks",
+    "flavors": [
+        "chocolate",
+        "vanilla"
+    ],
+    "enables": true
+}
+// enables flags it automatically    
+retuns 201 ok with  
+
+{
+    "name": "Matakwa Caffein",
+    "brand": "Boss Drinks",
+    "flavors": [
+        "chocolate",
+        "vanilla"
+    ]
+}
+
+//in addition , the validation pipelines can prevent a request processing if any non-whitelisted 
+//option are passed 
+//sending the req with unwanted propes returns an error 
+{
+    "message": [
+        "property id should not exist",
+        "property enables should not exist"
+    ],
+    "error": "Bad Request",
+    "statusCode": 400
+}
+
+
+//auto transfer DTOs
+@Post()
+create(@Body() createCoffeeDto:CreateCoffeeDto) {
+    // return body
+    console.log(createCoffeeDto instanceof CreateCoffeeDto) //false
+    return this.coffeesService.create(createCoffeeDto)
+}
+
+//to enable createCoffeeDto be an instance of CreateCoffeDto we can enable it globally  
+ //in main ts  
+ import { NestFactory } from '@nestjs/core';
+ import { AppModule } from './app.module';
+ import { ValidationPipe } from '@nestjs/common';
+ 
+ async function bootstrap() {
+   const app = await NestFactory.create(AppModule);
+   app.useGlobalPipes(new ValidationPipe({
+     whitelist: true,
+     forbidNonWhitelisted: true,
+     transform: true
+   }))
+   await app.listen(3000);
+ }
+ bootstrap();
+ //now it becomes true  
+ 
+ 
+ //this transform feature also performs primitive type conversions like bools and number s
+ @Get(':id')
+ findOne(@Param('id') id: number) {
+     // return `'This Action returns #${id} coffee`
+     console.log(typeof id) //number
+     return this.coffeesService.findOne('' + id)
+ }
+
+ Chnages 
+
+ //typeorm and dokder postgres  
+ $ pnpm i @nestjs/typeorm typeorm pg 
+
+ import { Module } from '@nestjs/common';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
+import { CoffeesController } from './coffees/coffees.controller';
+import { CoffeesService } from './coffees/coffees.service';
+import { CoffeesModule } from './coffees/coffees.module';
+import {TypeOrmModule} from "@nestjs/typeorm"
+
+@Module({
+  //broke the business structure to its module 
+  //to contain CoffeeServoice and CoffeeController
+  // controllers: [AppController, CoffeesController],
+  // providers: [AppService, CoffeesService],
+  imports: [CoffeesModule, 
+    TypeOrmModule.forRoot({
+      type: 'postgres',
+      host: 'localhost',
+      port: 5432,
+      username: 'postgres',
+      password: 'pass123',
+      database: 'postgres',
+      autoLoadEntities: true,
+      synchronize: true
+    })
+  ], 
+  controllers: [AppController],
+  providers: [AppService],
+})
+export class AppModule {}
+
+//notice how we used forRoot for this App module since its  the main  one to regsiter services
+
+//any other module will use forFeature for registration 
+ 
+import { Column, DataSource, Entity, PrimaryColumn, PrimaryGeneratedColumn } from "typeorm";
+
+@Entity() //sql table === 'coffee' in lowercase
+//passing a string like @Entity('coffee') creates a table called coffee
+//leaving it empty will use the class as the name for the table 
+export class Coffee {
+    //column decorator is used to mark a specific class property as a table column.
+
+    @PrimaryGeneratedColumn() //primary column prop
+    id: number;
+
+    @Column() //normal column name
+    name: string;
+
+    @Column()
+    brand: string;
+
+    @Column('json', {nullable: true}) //Indicates if column's value can be set to NULL/optional and should be json.
+    flavors: string[];
+}
+
+import { Module } from '@nestjs/common';
+import { CoffeesController } from './coffees.controller';
+import { CoffeesService } from './coffees.service';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Coffee } from './entities/coffee.entities';
+
+//before we had CoffeesController and CoffeeService as the overall  app module
+//make sure they are removed on the app module to avoid two instantiation  
+@Module({
+    imports: [TypeOrmModule.forFeature([Coffee])],
+    controllers: [CoffeesController],
+    providers: [CoffeesService]
+})
+export class CoffeesModule { }
+
+
+
+//the reposiroty pattern
+//typeorm supports the repository pattern that means 
+//each entity has its own reposiroty 
+REPOSITOY <--------->  DataSource
+
+1. One-to-One Relationship
+Definition: Each row in the primary table corresponds to exactly one row in the foreign table.
+
+Illustration:
+
+COFFEE ←——→ DataSource
+
+This means every COFFEE entry is linked to exactly one DataSource (and vice versa). For example, each coffee could have one specific source or origin.
+
+2. One-to-Many Relationship
+Definition: A row in the primary table is linked to one or more rows in the foreign table.
+
+Illustration:
+
+COFFEE BRAND ←—— COFFEE
+
+COFFEE BRAND ←—— COFFEE
+
+In this example, one COFFEE BRAND (like "Starbucks") can have many types of COFFEE. One coffee brand produces multiple coffee varieties, but each coffee type is linked to only one brand.
+
+3. Many-to-Many Relationship
+Definition: Each row in the primary table is linked to one or more rows in the foreign table, and each row in the foreign table is also linked to one or more rows in the primary table.
+
+Illustration:
+
+FLAVOUR ←——→ COFFEE
+
+COFFEE ←——→ FLAVOUR
+
+This means one COFFEE can have multiple FLAVOURS (like chocolate, vanilla), and each FLAVOUR can be used in multiple types of COFFEE. This is a many-to-many relationship.
+
+Summary:
+One-to-One: Each coffee has exactly one data source.
+One-to-Many: A coffee brand can have many types of coffee.
+Many-to-Many: Each coffee can have multiple flavors, and each flavor can be in multiple coffees.
+
+import { Column, Entity, JoinTable, ManyToMany, PrimaryColumn, PrimaryGeneratedColumn } from "typeorm";
+import { Flavour } from "./flavour.entity/flavour.entity";
+
+@Entity() //sql table === 'coffee' in lowercase
+//passing a string like @Entity('coffee') creates a table called coffee
+//leaving it empty will use the class as the name for the table 
+export class Coffee {
+    //column decorator is used to mark a specific class property as a table column.
+
+    @PrimaryGeneratedColumn() //primary column prop
+    id: number;
+
+    @Column() //normal column name
+    name: string;
+
+    @Column()
+    brand: string;
+
+    //@Column('json', {nullable: true}) //Indicates if column's value can be set to NULL/optional and should be json.
+    @JoinTable()
+    //JoinTable decorator is used in many-to-many relationship to specify owner side of relationship. Its also used to set a custom junction table's name, column names and referenced columns.
+    @ManyToMany(type => Flavour, (flavour) => flavour.coffees) //func returns the related entity in this case Flavour
+    flavors: string[];
+}
+
+
+
+import { Column, Entity, ManyToMany, PrimaryColumn, PrimaryGeneratedColumn } from "typeorm";
+import { Coffee } from "../coffee.entities";
+
+@Entity()
+export class Flavour {
+
+    @PrimaryGeneratedColumn()
+    id: number;
+
+    @Column()
+    name: string;
+
+    @ManyToMany(type => Coffee, (coffee) => coffee.flavors)
+    coffees: Coffee[]
+}
+
+
+//relations are not automatically included when sending requests
+//instead they are always encapsu;lated 
+//to solve this fix the service 
+findAll() {
+    // return this.coffees
+    //we can customize the find to return the relations for FindManyToMany
+    return this.coffeeRepository.find({
+        relations: ['flavors'] //this is flavors in Coffee entity 
+    })
+}
+
+async findOne(id: string) {
+    // throw 'A random error'
+    // const coffee =  this.coffees.find((item) => item.id === +id)
+    //findOne({ where: { id: +id } }): This ensures that you're passing an object with the id field, which matches the expected FindOneOptions<Coffee> format.
+    const coffee = await this.coffeeRepository.findOne({ where: { id: +id }, 
+        relations: ['flavors']
+    })
+    if (!coffee) {
+        // throw new HttpExcep tion(`Coffee #{id} not found`, HttpStatus.NOT_FOUND)
+        throw new NotFoundException(`Coffee #{id} not found`)
+    }
+    return coffee
+}
+
+//result of a query  
+[
+    {
+        "id": 2,
+        "name": "Komboda Tea 😂😂😂",
+        "brand": "Best freshners",
+        "flavors": []
+    },
+    {
+        "id": 3,
+        "name": "Breweris Caffe 🚀🚀",
+        "brand": "Hughlands",
+        "flavors": []
+    }
+]
+
+
+//imagine a scenario where we want to add coffee into db but it has flavours that are not 
+//present in flavours table yet 
+//may be add them manually right? 
+//better option is to use cascading inserts  and updates  
+export class Coffee {
+    //column decorator is used to mark a specific class property as a table column.
+
+    @PrimaryGeneratedColumn() //primary column prop
+    id: number;
+
+    @Column() //normal column name
+    name: string;
+
+    @Column()
+    brand: string;
+
+    //@Column('json', {nullable: true}) //Indicates if column's value can be set to NULL/optional and should be json.
+    @JoinTable()
+    //JoinTable decorator is used in many-to-many relationship to specify owner side of relationship. Its also used to set a custom junction table's name, column names and referenced columns.
+    @ManyToMany(type => Flavour,
+        (flavour) => flavour.coffees, //func returns the related entity in this case Flavour
+        {
+            cascade: true //['insert]
+        }
+    )
+    flavors: string[];
+}
+
+
+private async  preloadFlavourName(name:string): Promise<Flavour> {
+    const existingFlavour = await this.flavourRepository.findOne({where: {name: name}})
+    if(existingFlavour){
+        return existingFlavour
+    }
+    return this.flavourRepository.create({name})
+}
+
+// creating a paginations fior findALL Controller
+$ nest g class common/dto/pagination-query.dto --no-spec
+CREATE src/common/dto/pagination-query.dto/pagination-query.dto.ts (36 bytes)
+
+
+import { Type } from "class-transformer";
+import { IsOptional, IsPositive } from "class-validator";
+
+export class PaginationQueryDto {
+    @IsOptional() // no error if not passed /undefined
+    @IsPositive() //Checks if the value is a positive number greater than zero.
+    @Type(() => Number)
+    limit: number;
+
+
+    @IsOptional()
+    @IsPositive() 
+    @Type(() => Number)
+    offset: number;
+}
+
+
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+import { ValidationPipe } from '@nestjs/common';
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  app.useGlobalPipes(new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    transform: true,  
+    transformOptions: {
+      enableImplicitConversion: true //heps avoiding the types decorator on properties 
+    }
+  }))
+  await app.listen(3000);
+}
+bootstrap();
+
+
+
+//transactions 
+//lets say the database team wants to add a way of recommending flavours to users and hence they need to add an new avent to be used later
+// anew endpoint to recommend flavours and  store the avent after that previous call finishes. 
+//In order ths to successed, all processes must be successfull
+//in short a db trasactions is an event where on eof the task depends on the other  
+// Understanding Database Transactions (with an Example)
+// What is a Database Transaction?
+// A transaction in the context of databases is like a sequence of steps that must all succeed or all fail together. If even one step fails, everything else that was done before it gets undone (rolled back). This ensures that the database always remains in a consistent state.
+
+// In other words:
+
+// A transaction is a unit of work that consists of multiple tasks.
+// If any task fails, the entire transaction is canceled.
+// If all tasks succeed, the transaction is committed (saved).
+// Real-World Example: Recommending Flavours to Users
+// Let’s break it down with an example where you want to add a flavour recommendation feature to your coffee application. Here’s how it works with transactions:
+
+// Scenario:
+// The database team wants to recommend flavours to users based on their preferences.
+// They need to:
+// Fetch user preferences from the database.
+// Determine which flavours to recommend.
+// Store a record (event) of the recommendation in the database.
+// Problem:
+// In this example, if any of these steps fail, the whole operation should not succeed. For example:
+
+// If the system fetches user preferences but fails to store the event of recommendation, that’s inconsistent.
+// This is where transactions help. A transaction ensures that all the steps complete successfully together. If one fails, the database rolls back to the state it was in before the transaction began.
+
+// Example with Transaction:
+// Start the transaction (begin the process).
+// Fetch the user’s preferences.
+// Recommend the right flavours based on the preferences.
+// Store the event that records the recommendation in the database.
+// If any of the above steps fail, the transaction fails, and the database rolls back to its original state. This ensures no partial or incomplete changes.
+
+// Steps Explained Clearly:
+// Start Transaction:
+
+// Think of this as starting the process where we tell the database, "I'm going to do multiple things, but don't save anything until I say all steps are complete."
+// Fetch User Preferences:
+
+// The system reads the user’s coffee preferences from the database.
+// Recommend Flavours:
+
+// Based on the fetched preferences, the system calculates and suggests flavours (e.g., chocolate, vanilla).
+// Store Recommendation Event:
+
+// The system creates an entry in the database that logs the flavours recommended to the user.
+// Commit Transaction:
+
+// Once all the steps succeed, the transaction is committed, which means all changes (like saving the recommendation event) are saved to the database.
+// Rollback (if something fails):
+
+// If fetching the preferences or storing the recommendation event fails, the system rolls back, undoing any partial changes to the database.
+// Why Use Transactions?
+// Consistency: Ensures that all the steps of the process are completed successfully, keeping the database in a correct state.
+// All or Nothing: If one step fails, the whole transaction fails. This avoids having incomplete or corrupted data.
+// Atomicity: Transactions make sure that a group of operations behave like one single action. They either all happen or none of them do.
+// Conclusion:
+// A transaction is crucial when multiple related operations need to succeed together, like in this example of recommending flavours and storing the event. If one part fails, the whole transaction fails, ensuring the database remains reliable and consistent.
+
+//$ nest g class events/entities/event.entity --no-spec
+CREATE src/events/entities/event.entity/event.
+
+//any entity has to be added to its respective Module remeber 
+import { Module } from '@nestjs/common';
+import { CoffeesController } from './coffees.controller';
+import { CoffeesService } from './coffees.service';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Coffee } from './entities/coffee.entities';
+import { Flavour } from './entities/flavour.entity/flavour.entity';
+
+//before we had CoffeesController and CoffeeService as the overall  app module
+//make sure they are removed on the app module to avoid two instantiation  
+@Module({
+    //Event entitiy -  An event which takes place in the DOM.
+    imports: [TypeOrmModule.forFeature([Coffee, Flavour, Event])],
+    controllers: [CoffeesController],
+    providers: [CoffeesService]
+})
+export class CoffeesModule { }
+
+//then we will add recommendation to coffeeEntity 
+import { Column, Entity, JoinTable, ManyToMany, PrimaryColumn, PrimaryGeneratedColumn } from "typeorm";
+import { Flavour } from "./flavour.entity/flavour.entity";
+
+@Entity() //sql table === 'coffee' in lowercase
+//passing a string like @Entity('coffee') creates a table called coffee
+//leaving it empty will use the class as the name for the table 
+export class Coffee {
+    //column decorator is used to mark a specific class property as a table column.
+
+    @PrimaryGeneratedColumn() //primary column prop
+    id: number;
+
+    @Column() //normal column name
+    name: string;
+
+    @Column()
+    brand: string;
+
+    //recommendation column
+    @Column({default: 0})
+    recommendations: number;
+
+
+    //@Column('json', {nullable: true}) //Indicates if column's value can be set to NULL/optional and should be json.
+    @JoinTable()
+    //JoinTable decorator is used in many-to-many relationship to specify owner side of relationship. Its also used to set a custom junction table's name, column names and referenced columns.
+    @ManyToMany(type => Flavour,
+        (flavour) => flavour.coffees, //func returns the related entity in this case Flavour
+        {
+            cascade: true //['insert]
+        }
+    )
+    flavors: Flavour[]; 
+}
+
+// then we will add transactions , we will need to inject Connection 
+
+async recommendCoffee(coffee: Coffee) {
+    // Creates a query runner used to perform queries on a single database connection.
+    const queryRunner = this.connection.createQueryRunner();
+
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+        coffee.recommendations++;
+
+        // Create an entity instance to save the event details
+        const recommendEvent = queryRunner.manager.create(EventEntity, {
+            name: 'recommend_coffee',
+            type: 'coffee',
+            payload: { coffeeId: coffee.id },
+        });
+
+        // Save the coffee entity and the recommend event entity
+        await queryRunner.manager.save(coffee);
+        await queryRunner.manager.save(recommendEvent);
+
+        // document.dispatchEvent(), remember that it's for front-end/browser use cases. For a server-side application, dispatching may not be useful unless you have an event-handling system in place.
+        // document.dispatchEvent(recommendEvent);
+
+        // Commit the transaction after both operations are successful
+        await queryRunner.commitTransaction();
+    } catch (error) {
+        // Rollback transaction in case of error
+        await queryRunner.rollbackTransaction();
+        throw error; // Optional: rethrow error to be handled by the caller
+    } finally {
+        // Release the query runner
+        await queryRunner.release();
+    }
+}
+
+
+
+//what are indexes? 
+// //are special lookup tables that database search ingines can use for data retrieval 
+// Indexes are special data structures in databases that help speed up the retrieval of rows from a table. They are like lookup tables that a database search engine uses to quickly find data without scanning the entire table. Indexes are created on one or more columns in a database table, allowing the database to locate the required data faster than it would with a full table scan.
+
+// Key Points about Indexes:
+// Primary Use: They are used to improve the performance of queries by reducing the amount of data the database engine has to search through.
+// Index Structure: Most commonly, indexes are built using structures like B-trees or hash maps, which allow for efficient data lookups.
+// How It Works:
+// Without an index, when a query is executed, the database may need to check every row in the table (a "full table scan") to find the relevant data.
+// With an index, the database can jump directly to the part of the table that contains the requested data, significantly reducing the search time.
+// Example:
+// If you have a table of COFFEE and often search for coffees by name, an index on the name column allows the database to quickly locate rows with a matching name.
+
+// Types of Indexes:
+// Single-column Index: An index created on a single column.
+
+// Example: CREATE INDEX idx_name ON coffee (name);
+// Composite Index (Multi-column): An index created on two or more columns.
+
+// Example: CREATE INDEX idx_name_brand ON coffee (name, brand);
+// Unique Index: This ensures that the indexed column(s) have unique values, often used with primary keys.
+
+// Example: CREATE UNIQUE INDEX idx_unique_coffee ON coffee (name);
+// Full-text Index: Used for text-based searches within large text fields (e.g., searching within blog posts or product descriptions).
+
+// Trade-offs:
+// Pros:
+// Faster data retrieval for queries involving the indexed columns.
+// Useful for queries that involve filtering, sorting, or joining tables on indexed columns.
+// Cons:
+// Indexes take up additional storage space.
+// Inserting, updating, or deleting rows can be slower since the index needs to be updated whenever the indexed data changes.
+// Simple Analogy:
+// Think of an index in a book. Instead of flipping through every page to find a topic, you can quickly look it up in the index and jump straight to the correct page number. Similarly, database indexes allow the database engine to quickly locate the needed data.
+import { Entity, PrimaryGeneratedColumn, Column, Index } from "typeorm";
+
+//in advanced cases we may want to define composite indexes containin gmultiple columns
+@Index(['name', 'type'])
+@Entity()
+export class EventEntity {
+    @PrimaryGeneratedColumn()
+    id: number;
+
+    @Column()
+    type:string;
+
+    @Index()
+    @Column()
+    name: string;
+
+    @Column('json')
+    payload: Record<string, any>
+}
+
+//database migrations provide a way yo incrementally  update db schema and update data with database modal 
+//TypeORM provides a dedicated CLI for that  
+
+// Database migrations in TypeORM (or any database management system) offer a way to incrementally update the database schema and data in a controlled manner. Migrations allow you to make changes to your database schema over time, which is especially useful in a collaborative environment where the database evolves.
+
+// Key Concepts of Database Migrations in TypeORM:
+// Schema Evolution: When your application evolves and you need to make changes to the database schema (e.g., add a new column, create a new table), migrations let you do that in a structured and controlled way.
+// Reversible Changes: Migrations allow you to apply changes (migrate up) and undo changes (migrate down), making the schema change process flexible and safe.
+// Consistency: By using migrations, your schema changes are version-controlled and shared across the team. Everyone's database stays in sync, even as the schema evolves.
+// TypeORM CLI for Migrations
+// TypeORM provides a dedicated CLI (Command Line Interface) to generate, run, and revert migrations. The CLI makes it easy to manage migrations without directly modifying the database.
+
+// Basic Migration Workflow:
+// Generate a Migration:
+
+// You create a new migration file that contains instructions for modifying the database schema.
+// Example command:
+
+// npx typeorm migration:generate -n CreateCoffeeTable
+// This creates a migration file in your project, typically under the src/migrations folder, with boilerplate up and down functions.
+// Running the Migration:
+
+// After generating the migration, you run it to apply the changes to the database.
+// Example command:
+
+// npx typeorm migration:run
+// Reverting a Migration:
+
+// You can revert the latest migration if needed, rolling back the changes.
+// Example command:
+
+// npx typeorm migration:revert
+// Example Scenario:
+// You have a Coffee entity, and you want to add a new flavor column to it.
+
+// You generate a migration:
+
+// npx typeorm migration:generate -n AddFlavorColumnToCoffee
+// The generated migration might look like this:
+
+
+// import { MigrationInterface, QueryRunner } from "typeorm";
+
+// export class AddFlavorColumnToCoffee1622538235102 implements MigrationInterface {
+//     public async up(queryRunner: QueryRunner): Promise<void> {
+//         await queryRunner.query(`ALTER TABLE "coffee" ADD "flavor" varchar(255)`);
+//     }
+
+//     public async down(queryRunner: QueryRunner): Promise<void> {
+//         await queryRunner.query(`ALTER TABLE "coffee" DROP COLUMN "flavor"`);
+//     }
+// }
+// After running npx typeorm migration:run, the flavor column is added to the coffee table.
+
+// If you need to revert the migration (e.g., you no longer want the flavor column), you can run npx typeorm migration:revert, and TypeORM will drop the column.
+
+// Key Commands:
+// Generate Migration: npx typeorm migration:generate -n MigrationName
+// Run Migrations: npx typeorm migration:run
+// Revert Migration: npx typeorm migration:revert
+// Benefits:
+// Trackable History: All changes to the database schema are tracked in migration files, allowing you to review or audit the changes later.
+// Collaborative: Migrations help teams maintain a shared understanding of the database schema changes.
+// Reversible: If a migration introduces an issue, you can easily revert to a previous schema state.
+// Migrations ensure that your database schema evolves in sync with your application code, making it easier to manage changes in a structured way.
+
+// create an ormconfig.js file on root 
+module.exports = {
+    type: 'postgres',
+    host: 'localhost',
+    port: 5432,
+    username: 'postgres',
+    password: 'your_password', // Add your password here if required
+    database: 'postgres',
+    entities: ['dist/**/*.entity.js'], // Compiled JS files in the dist directory
+    migrations: ['dist/migrations/*.js'], // Compiled JS migration files
+    cli: {
+        migrationsDir: 'src/migrations' // This is where migration files will be created
+    }
+}
+
+
+//npx typeorm migration:create -n CoffeRefactor
+//To generate the migration file inside the src/migration directory 
+//npx typeorm migration:create src/migrations/CoffeeRefactor
+import { Column, Entity, JoinTable, ManyToMany, PrimaryColumn, PrimaryGeneratedColumn } from "typeorm";
+import { Flavour } from "./flavour.entity/flavour.entity";
+
+@Entity() //sql table === 'coffee' in lowercase
+//passing a string like @Entity('coffee') creates a table called coffee
+//leaving it empty will use the class as the name for the table 
+export class Coffee {
+    //column decorator is used to mark a specific class property as a table column.
+
+    @PrimaryGeneratedColumn() //primary column prop
+    id: number;
+
+    @Column() //normal column name
+    title: string;
+
+    @Column()
+    brand: string;
+
+    //recommendation column
+    @Column({default: 0})
+    recommendations: number;
+
+
+    //@Column('json', {nullable: true}) //Indicates if column's value can be set to NULL/optional and should be json.
+    @JoinTable()
+    //JoinTable decorator is used in many-to-many relationship to specify owner side of relationship. Its also used to set a custom junction table's name, column names and referenced columns.
+    @ManyToMany(type => Flavour,
+        (flavour) => flavour.coffees, //func returns the related entity in this case Flavour
+        {
+            cascade: true //['insert]
+        }
+    )
+    flavors: Flavour[]; 
+}
+
+import { MigrationInterface, QueryRunner } from "typeorm";
+
+export class CoffeeRefactor1729592191946 implements MigrationInterface {
+
+    // Run the migrations.
+    public async up(queryRunner: QueryRunner): Promise<void> {
+        `ALTER TABLE "coffee" RENAME COLUMN "name" TO "title` 
+    }
+
+
+    //Reverse the migrations.
+    //just in case something happens 
+    public async down(queryRunner: QueryRunner): Promise<void> {
+    }
+
+}
+
+
+//run npm run build  - to build the dist folder
+//then run the migrations
+//npx typeorm migration:run --dataSource ./ormconfig.js
+// --dataSource ./ormconfig.js: This specifies the path to your ORM configuration file, which contains the necessary information for TypeORM to connect to the database and locate the migrations.
+
+
+//SEE ALL TABLES RUNNIN GIN DOCKER PSITGRES
+1. Check Running Containers
+First, ensure that your PostgreSQL container is actually running. You can list all running containers with the following command:
+docker ps
+$ docker ps
+CONTAINER ID   IMAGE      COMMAND                  CREATED        STATUS       PORTS                    NAMES
+6dad1edc5635   postgres   "docker-entrypoint.s…"   24 hours ago   Up 6 hours   0.0.0.0:5432->5432/tcp   iluvcoffe-db-1
+(.venv) 
+
+docker exec -it your_container_name psql -U your_username -d your_database
+docker exec -it iluvcoffe-db-1 psql -U postgres -d postgres
+
+then when inside docker run to see all tables running 
+
+sql
+\dt
+
+$ docker exec -it iluvcoffe-db-1 psql -U postgres -d postgres
+psql (17.0 (Debian 17.0-1.pgdg120+1))
+Type "help" for help.
+
+postgres=# sql
+postgres-# \dt
+                 List of relations
+ Schema |          Name          | Type  |  Owner
+--------+------------------------+-------+----------
+ public | coffee                 | table | postgres
+ public | coffee_flavors_flavour | table | postgres
+ public | flavour                | table | postgres
+(3 rows)
+
+postgres-#
+
+To exit the PostgreSQL terminal (or any command-line interface running inside a Docker container), you can simply type:
+sql
+\q
+
+
+
+
+I see the issue. The problem is in your entity relationships and file structure. Let's fix this:
+
+First, correct your file structure:
+
+Copysrc/
+  └── coffees/
+      └── entities/
+          ├── coffee.entity.ts
+          └── flavour.entity.ts
+
+Fix the Coffee entity (coffee.entity.ts):
+
+typescriptCopyimport { Column, Entity, JoinTable, ManyToMany, PrimaryGeneratedColumn } from "typeorm";
+import { Flavour } from "./flavour.entity";
+
+@Entity()
+export class Coffee {
+    @PrimaryGeneratedColumn()
+    id: number;
+
+    @Column()
+    title: string;
+
+    @Column()
+    brand: string;
+
+    @Column({ default: 0 })
+    recommendations: number;
+
+    @JoinTable() // this decorator should be on the owning side
+    @ManyToMany(
+        () => Flavour,
+        (flavour) => flavour.coffees,
+        { cascade: true } // optional: enables cascade operations
+    )
+    flavors: Flavour[];
+}
+
+Fix the Flavour entity (flavour.entity.ts):
+
+typescriptCopyimport { Column, Entity, ManyToMany, PrimaryGeneratedColumn } from "typeorm";
+import { Coffee } from "./coffee.entity";
+
+@Entity()
+export class Flavour {
+    @PrimaryGeneratedColumn()
+    id: number;
+
+    @Column()
+    name: string;
+
+    @ManyToMany(
+        () => Coffee,
+        (coffee) => coffee.flavors
+    )
+    coffees: Coffee[];
+}
+
+Update your ormconfig.js:
+
+javascriptCopymodule.exports = {
+    type: 'postgres',
+    host: 'localhost',
+    port: 5432,
+    username: 'postgres',
+    password: 'pass123',
+    database: 'postgres',
+    entities: ['dist/**/*.entity.{js,ts}'],
+    migrations: ['dist/migrations/*.{js,ts}'],
+    cli: {
+        migrationsDir: 'src/migrations'
+    },
+    synchronize: false,
+    logging: true
+};
+
+Create a data-source.ts file:
+
+typescriptCopy// src/data-source.ts
+import { DataSource } from "typeorm";
+import { Coffee } from "./coffees/entities/coffee.entity";
+import { Flavour } from "./coffees/entities/flavour.entity";
+
+export const AppDataSource = new DataSource({
+    type: "postgres",
+    host: "localhost",
+    port: 5432,
+    username: "postgres",
+    password: "pass123",
+    database: "postgres",
+    synchronize: false,
+    logging: true,
+    entities: [Coffee, Flavour],
+    migrations: ["src/migrations/*.ts"],
+    subscribers: [],
+});
+
+Update your package.json scripts:
+
+jsonCopy{
+  "scripts": {
+    "typeorm": "typeorm-ts-node-commonjs",
+    "migration:generate": "npm run typeorm migration:generate -- -d ./src/data-source.ts",
+    "migration:run": "npm run typeorm migration:run -- -d ./src/data-source.ts",
+    "migration:revert": "npm run typeorm migration:revert -- -d ./src/data-source.ts"
+  }
+}
+
+Now try these steps:
+
+bashCopy# Remove the dist folder
+rm -rf dist/
+
+# Build the project
+npm run build
+
+# Generate a new migration
+npm run migration:generate src/migrations/CoffeeRefactor
+
+# Run the migration
+npm run migration:run
+
+Make sure your module is properly configured:
+
+typescriptCopy// src/coffees/coffees.module.ts
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { CoffeesController } from './coffees.controller';
+import { CoffeesService } from './coffees.service';
+import { Coffee } from './entities/coffee.entity';
+import { Flavour } from './entities/flavour.entity';
+
+@Module({
+    imports: [TypeOrmModule.forFeature([Coffee, Flavour])],
+    controllers: [CoffeesController],
+    providers: [CoffeesService],
+})
+export class CoffeesModule {}
+The key changes are:
+
+Fixed the import paths
+Added proper bidirectional relationship in the entities
+Added @JoinTable() on the owning side (Coffee entity)
+Properly configured the ManyToMany relationships
+Updated the configuration files
+
+These changes should resolve the "Entity metadata for Flavour#coffees was not found" error. If you're still having issues, double-check that:
+
+All import paths are correct
+The entities are properly registered in your module
+The database connection details are correct
+You've rebuilt the project after making changes
